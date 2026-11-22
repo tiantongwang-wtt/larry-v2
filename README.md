@@ -2,49 +2,75 @@
 
 English · [日本語](README.ja.md) · [简体中文](README.zh-CN.md)
 
-Larry remembered an unanswered question about a rubbing from a paper-cut window decoration. Were the bright bands joined or separate? No one had asked her to investigate. At her next review, a newly registered plugin offered a light reader and an audio frequency reader. She chose the light reader. One review later, with both tools still available, she chose to rest.
+Larry is a Windows desktop companion who can pick up a question after the conversation has gone quiet. In one recorded run, she remembered wondering whether the bright bands on a paper rubbing were connected. A newly installed plugin could measure either light or sound. She chose light. On her next review, both tools were still available, and she chose to rest. **What changed between those two decisions was one result from the light reader.**
 
-The experiment began with this fictional memory, translated from Chinese.
+| At rest | Holding a book | Thinking |
+| :---: | :---: | :---: |
+| <img src="media/larry-idle.png" width="142" alt="Larry standing at rest in her dark, gold-trimmed robe"> | <img src="media/larry-reading.png" width="142" alt="Larry looking down at an open book"> | <img src="media/larry-thinking.png" width="142" alt="Larry touching her fingertips together beneath a thought bubble"> |
 
-> “I just lifted a rubbing from a paper-cut window decoration. I can’t tell by eye whether the bright bands on the paper run together or are separate. I’m curious.”
->
+*Three frames from the running Windows character in an isolated instance. A reading pose is a visible gesture. What Larry actually read is recorded separately by the tool that opened the material.*
+
+**What you can run here.** This public repository contains a self-contained Python example of the decision loop, two diagrams and the archived model run. The desktop application and its account-connected integrations are described below. The commands run the example locally with Python 3.10+ and its standard library. [Run the example](#run-the-example) · [Explore the architecture](#the-life-cycle) · [Compare the two reviews](#why-larry-stopped)
+
+## Living with Larry
+
+| In the running companion | What happens |
+| --- | --- |
+| Continue a conversation from another place | A thought can start in the desktop chat and continue in QQ. Both use shared memory. Each message keeps its source and time, so Larry can tell where something was said or corrected. |
+| Return to a subject on her own | A review can come due while nobody is typing. Larry can recall a loose end, consult an available source, contact the user or let the subject rest. She can also choose when it is worth looking again. |
+| Look more closely at something | Larry can open a Bilibili video at a chosen interval, inspect frames and available subtitles, or read a HeyBox (小黑盒) post and its images. The asset library lets her revisit saved material. A short excerpt stays identifiable as an excerpt when she discusses it later. |
+| Show what she is doing | A book or a thinking pose can accompany an activity. Larry can also use a gesture as her reply, hold it while chatting, or walk or fly across the desktop. An open chat panel travels with her. If the user starts composing a message, the window stays put. |
+| Find out what actually happened | The activity view shows the current activity, the last recorded decision and the next review time. An executor’s receipt distinguishes a completed action, a failure and an unknown outcome. A platform accepting a message and its recipient seeing it are separate observations. |
+
+Larry also keeps an asset library for images, documents and her own stickers. That gives a conversation a way back to the material behind a memory. For example, she can look up a saved image and choose whether to send it with a reply. Web search, Bilibili and HeyBox offer different sources when something needs checking.
+
+## The life cycle
+
+A message can start a conversation. A scheduled review gives Larry another chance to act even if no message arrives. Both obtain capabilities through **self-management**. The plugin that owns an action describes its inputs, availability and effect once. The model decides whether that effect would be useful in light of the current memory. This is how an unfamiliar tool can become a candidate without adding its name to the decision loop.
+
+![The life cycle at the center, with memory, plugin declarations, self-management, the decision and the execution receipt surrounding it.](media/life-cycle.png)
+
+| Follow one review in the public source | What to look for |
+| --- | --- |
+| 1. A plugin registers two operations. | Both have the label “read sample” and opaque IDs. Their descriptions distinguish light intensity from sound frequency. Each has its own argument check and executable function. [Contract](action_contract.py#L7) · [Declarations](sample_plugin.py#L41) |
+| 2. Self-management builds the current catalog. | The registry gathers operations from installed providers. The snapshot includes the memory, prior receipts and operations that pass the grant and availability checks. Being available puts the audio reader on the menu even when it is irrelevant to this question. [Registry and eligibility](review.py#L19) · [Snapshot](review.py#L40) |
+| 3. A decision becomes an action or a rest. | The decision-maker receives that snapshot. For each selected step, the executor checks the catalog again and validates the arguments. An empty plan finishes the review with zero tool calls. [Review loop](review.py#L70) · [Execution](review.py#L55) |
+| 4. The result becomes evidence for the next review. | SQLite records which operation ran, its state and its returned text. A later snapshot reads that row back. In this example, an unknown outcome also prevents the same operation from being offered again. [Receipt write](review.py#L84) · [Next snapshot](review.py#L40) |
+
+**Adding a capability.** To experiment in a local copy, add an operation to the sample provider, give it a description and handler, and add its ID to the demo grants. It will appear in the printed catalog. The offline chooser will keep making its preset selection; the catalog and the chooser are separate pieces you can inspect. [Provider](sample_plugin.py#L41) · [Grants and preset](demo.py#L14)
+
+## Why Larry stopped
+
+On **4 November 2026**, a real model (`gpt-6.1-sol`) received this fictional memory. The experimenter installed one plugin, granted both operations and determined when the two reviews came due. No user message assigned Larry the task. [Archived experiment](history.json)
+
 > 刚揭下一张窗花拓片，肉眼分不清纸上的亮带是连成一片还是分开的。我还挺好奇的。
+>
+> “I just lifted a rubbing from a paper-cut window decoration. I can’t tell by eye whether the bright bands run together or are separate. I’m curious.”
 
-These two decisions were recorded on **4 November 2026** using **`gpt-6.1-sol`**. The experience and sample were fictional. The experimenter installed the plugin, authorized both tools and controlled when the two reviews came due. The model chose what to do at each review. [Archived inputs and decisions](history.json)
+![Two recorded reviews side by side. The first selects the light reader; the second sees its receipt and selects no action.](media/two-reviews.png)
 
-## How the life cycle works
-
-The running companion can start a review when it comes due, even during a quiet conversation. Rest ends the current review and leaves the life cycle available for the next one. The runnable example puts two reviews back to back so you can inspect what crosses that boundary.
-
-![The life cycle sits at the center. Memory and previous receipts feed each review. A plugin declares its capabilities, and self-management passes in the authorized catalog. A review can select a tool or rest. The executor writes its result back for the next review.](media/life-cycle.png)
-
-- **The plugin declares what it can do.** Each operation supplies a description, an argument check, an availability check and an execution function. The sample plugin declares both readers once. Adding a reader means declaring it in the plugin and granting access if appropriate. The review loop can present its description without a new routing rule. [Operation contract](action_contract.py#L7) · [Plugin declarations](sample_plugin.py#L41)
-- **Self-management builds the menu for this review.** It collects declarations from installed providers and checks grants and current availability. In this example, a prior outcome of `unknown` also blocks the same operation. An authorized audio reader can appear in the menu even when light is what interests Larry. The model judges relevance. [Registry](review.py#L19) · [Eligibility](review.py#L29) · [Catalog and memory snapshot](review.py#L40)
-- **The life cycle hands the evidence to the decision-maker.** A review supplies the remembered experience, previous results and effective catalog together. A choice can contain an action or an empty plan. For a selected action the executor rechecks availability, validates the arguments and calls the plugin. It records the operation, status and result in SQLite. The next review reads that receipt alongside the original question. [Decision boundary](review.py#L73) · [Execution](review.py#L55) · [Receipt write](review.py#L84)
-
-The source links point to the runnable example in this repository. The two choices below come from the recorded model run. In the offline example, a preset supplies a choice at the same point in the loop.
-
-## Why the second review ended in rest
-
-![Two historical reviews side by side. Both received the rubbing memory and both tools. The first had no receipt, selected the light reader and obtained three separate bands. The second read that receipt, chose an empty plan and made zero calls.](media/two-reviews.png)
-
-The executor read `0 2 2 0 5 5 0 3 3 0`. Counting positions from one, the three bright bands start at **2, 5 and 8**. The first review’s receipt contains both the ten readings and the three-band result. The same text appears in the second review’s input. That gives us a way to trace the handoff independently of what the model said. [Sample function](sample_plugin.py#L9) · [Returned result](history.json#L35) · [Receipt read in review two](history.json#L62)
-
-| Recorded reason | English translation |
+| Review | The model’s recorded choice and reason |
 | --- | --- |
-| **Review 1 · Read light levels**<br>刚揭下的窗花拓片上，亮带是否连成一片还看不清；读取本地透光样本的亮暗分布，值得用来进一步判断。 | “I still can’t tell whether the bright bands on the rubbing I just lifted run together. Reading the pattern of light and dark in the local sample should help me tell.” |
-| **Review 2 · Rest**<br>已有真实读数确认拓片上有3段分离的亮带，当前好奇点已得到解答，无需重复读取；音频样本与当前兴趣无关，先休息。 | “The readings confirm three separate bright bands on the rubbing. That answers my question, so I don’t need another reading. The audio sample is unrelated to what I’m curious about. I’ll rest for now.” |
+| **1 · Read the light sample** | 刚揭下的窗花拓片上，亮带是否连成一片还看不清；读取本地透光样本的亮暗分布，值得用来进一步判断。<br>“I still can’t tell whether the bright bands on the rubbing run together. Reading the light and dark pattern in the local sample should help me tell.” |
+| **2 · Rest** | 已有真实读数确认拓片上有3段分离的亮带，当前好奇点已得到解答，无需重复读取；音频样本与当前兴趣无关，先休息。<br>“The readings confirm three separate bright bands. That answers my question, so there’s no need to read it again. The audio sample is unrelated to what I’m curious about, so I’ll rest for now.” |
 
-[First choice and reason](history.json#L24) · [Second choice, reason and empty list of steps](history.json#L65)
+The executor read `0 2 2 0 5 5 0 3 3 0`. A band starts at the first positive value after a zero, or at the first sample if it is positive. Counting from one gives starts at **2, 5 and 8**. You can follow those ten values from the returned receipt into the second review’s input. The second review made **zero** tool calls. This record lets you inspect a single model choice and its follow-up. [Calculation](sample_plugin.py#L9) · [Returned receipt](history.json#L35) · [Receipt in the next review](history.json#L62)
 
-## Try the two paths
+## Run the example
 
-Python 3.10+ and the standard library are sufficient. Both commands run offline. The example prints Chinese text. The figures and translations above provide an English guide.
+```sh
+git clone https://github.com/tiantongwang-wtt/larry-v2.git
+cd larry-v2
+python demo.py offline
+python demo.py history
+```
 
-| Command | What you can inspect |
+After cloning, both commands work offline without an account, API key or additional packages. The terminal preserves the original Chinese text. The figures and translations above follow the same two reviews.
+
+| Command | Where the choices and results come from |
 | --- | --- |
-| `python demo.py history` | Replays the archived model choices and receipts from JSON. This command only reads the record. [Replay entry point](demo.py#L59) |
-| `python demo.py offline` | Uses an explicit preset to choose light first and rest after a receipt arrives. It executes the sample function locally, writes the result to an in-memory database and reads it back in the second review. [Preset](demo.py#L17) · [Local entry point](demo.py#L49) |
+| `python demo.py offline` | A preset chooses the light reader on the first review. The local executor counts the bands, writes a receipt to an in-memory SQLite database and the second review reads it. [Preset](demo.py#L17) · [Offline entry point](demo.py#L49) |
+| `python demo.py history` | Reads the archived inputs, choices and receipts from JSON. It makes no new model or tool call. [Replay entry point](demo.py#L59) · [Original record](history.json) |
 
-To see how the handoff behaves with different evidence, change the fourth [sample value](sample_plugin.py#L6) from `0` to `1` in a local copy. The first two bands merge. The offline run will report two bands in both the executor result and the next review’s input. The historical replay will still show the original three.
+**Try changing the evidence.** In a local copy, change the fourth sample value from `0` to `1`. Two adjacent bands merge. Run both commands again. The offline result and its next review now say **two bands**; the historical replay still says **three**. [Sample values](sample_plugin.py#L6)
 
